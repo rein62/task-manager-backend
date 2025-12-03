@@ -13,21 +13,10 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  ssl: true,
-  family: 4,
-  // Увеличиваем таймауты для облачного подключения
-  connectionTimeoutMillis: 10000,
-  idleTimeoutMillis: 30000,
-  max: 10
 });
 
-// Разрешить запросы с фронтенда
-app.use(cors({
-  origin: process.env.FRONTEND_URL, // ссылка на Vercel
-  credentials: true
-}));
-
 // Middleware
+app.use(cors());
 app.use(express.json());
 
 // Проверка подключения к БД
