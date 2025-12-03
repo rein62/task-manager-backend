@@ -13,10 +13,8 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  ssl: {
-    rejectUnauthorized: false, // Обязательно для Supabase и Neon
-    require: true
-  },
+  ssl: true,
+  family: 4,
   // Увеличиваем таймауты для облачного подключения
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000,
@@ -30,7 +28,6 @@ app.use(cors({
 }));
 
 // Middleware
-app.use(cors());
 app.use(express.json());
 
 // Проверка подключения к БД
