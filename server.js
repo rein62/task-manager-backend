@@ -6,26 +6,41 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Подключение к базе данных
+// Подключение к базе данных БЕЗ SSL
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
+  family: 4,
+  // Увеличиваем таймауты для облачного подключения
+  connectionTimeoutMillis: 30000,
+  idleTimeoutMillis: 60000,
+  max: 10
 });
 
+// Разрешить запросы с фронтенда
+app.use(cors({
+  origin: process.env.FRONTEND_URL, // ссылка на Vercel
+  credentials: true
+}));
+
 // Middleware
-app.use(cors());
 app.use(express.json());
 
-// Проверка подключения к БД
-pool.connect((err, client, release) => {
-  if (err) {
-    return console.error('Ошибка подключения к БД:', err.stack);
+// Health check эндпоинты
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Server is running' });
+});
+
+app.get('/health-db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ status: 'OK', time: result.rows[0].now });
+  } catch (error) {
+    res.status(500).json({ status: 'ERROR', error: error.message });
   }
-  console.log('✅ Успешное подключение к PostgreSQL');
-  release();
 });
 
 // Вход в систему
@@ -247,3 +262,4 @@ app.listen(port, () => {
   console.log(`🚀 Сервер запущен на порту ${port}`);
   console.log(`📊 База данных: ${process.env.DB_NAME}`);
 });
+
