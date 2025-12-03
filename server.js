@@ -6,7 +6,7 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Подключение к базе данных с SSL
+// Подключение к базе данных
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -23,101 +23,29 @@ const pool = new Pool({
   max: 10
 });
 
-// Middleware с настройкой CORS
+// Разрешить запросы с фронтенда
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://your-frontend.vercel.app'], // Замени на свой домен Vercel
+  origin: process.env.FRONTEND_URL, // ссылка на Vercel
   credentials: true
 }));
+
+// Middleware
+app.use(cors());
 app.use(express.json());
 
-// Простые эндпоинты для проверки
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    service: 'task-manager-backend'
-  });
-});
-
-app.get('/api/test-db', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW() as time, version() as version');
-    res.json({ 
-      success: true, 
-      message: 'Database connected successfully!',
-      time: result.rows[0].time,
-      version: result.rows[0].version,
-      connection: {
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT,
-        user: process.env.DB_USER,
-        database: process.env.DB_NAME
-      }
-    });
-  } catch (error) {
-    console.error('Database test error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      details: 'Check DB_HOST, DB_PORT, DB_PASSWORD and SSL settings'
-    });
+// Проверка подключения к БД
+pool.connect((err, client, release) => {
+  if (err) {
+    return console.error('Ошибка подключения к БД:', err.stack);
   }
+  console.log('✅ Успешное подключение к PostgreSQL');
+  release();
 });
-
-// Проверка подключения к БД при запуске
-pool.on('connect', () => {
-  console.log('✅ PostgreSQL client connected');
-});
-
-pool.on('error', (err) => {
-  console.error('❌ PostgreSQL pool error:', err);
-});
-
-// Проверяем подключение при старте
-(async () => {
-  try {
-    const client = await pool.connect();
-    console.log('✅ Успешное подключение к PostgreSQL');
-    
-    // Проверяем существование таблиц
-    const tablesResult = await client.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public'
-    `);
-    
-    console.log(`📊 Найдено таблиц: ${tablesResult.rows.length}`);
-    
-    if (tablesResult.rows.length === 0) {
-      console.log('⚠️ Таблицы не найдены. Нужно создать через Supabase SQL Editor');
-    }
-    
-    client.release();
-  } catch (error) {
-    console.error('❌ Ошибка подключения к БД:', error.message);
-    console.log('Проверьте:');
-    console.log('1. DB_HOST:', process.env.DB_HOST);
-    console.log('2. DB_PORT:', process.env.DB_PORT);
-    console.log('3. DB_USER:', process.env.DB_USER);
-    console.log('4. DB_NAME:', process.env.DB_NAME);
-    console.log('5. SSL должен быть включен для Supabase');
-    
-    if (error.message.includes('ENETUNREACH') || error.message.includes('IPv6')) {
-      console.log('\n🚨 ПРОБЛЕМА IPv4/IPv6:');
-      console.log('- Render использует IPv4, а Supabase - IPv6');
-      console.log('- Решение 1: Используйте Connection Pooler (порт 6543)');
-      console.log('- Решение 2: Создайте базу на Neon.tech (работает с IPv4)');
-      console.log('- Решение 3: Купите IPv4 add-on в Supabase');
-    }
-  }
-})();
 
 // Вход в систему
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    
-    console.log('Login attempt for user:', username);
     
     const result = await pool.query(
       'SELECT * FROM users WHERE username = $1 AND password = $2',
@@ -138,7 +66,7 @@ app.post('/api/login', async (req, res) => {
     
   } catch (error) {
     console.error('Ошибка входа:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -149,7 +77,7 @@ app.get('/api/users', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Ошибка получения пользователей:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -166,7 +94,7 @@ app.post('/api/users', async (req, res) => {
     res.json({ success: true, user: result.rows[0] });
   } catch (error) {
     console.error('Ошибка добавления пользователя:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -178,7 +106,7 @@ app.delete('/api/users/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Ошибка удаления пользователя:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -191,7 +119,7 @@ app.put('/api/users/:id/role', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Ошибка обновления роли:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -202,7 +130,7 @@ app.get('/api/executors', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Ошибка получения исполнителей:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -219,7 +147,7 @@ app.post('/api/executors', async (req, res) => {
     res.json({ success: true, executor: result.rows[0] });
   } catch (error) {
     console.error('Ошибка добавления исполнителя:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -231,7 +159,7 @@ app.delete('/api/executors/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Ошибка удаления исполнителя:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -244,7 +172,7 @@ app.put('/api/executors/:id/status', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Ошибка обновления статуса:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -255,7 +183,7 @@ app.get('/api/tasks', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Ошибка получения задач:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -275,7 +203,7 @@ app.post('/api/tasks', async (req, res) => {
     res.json({ success: true, task: result.rows[0] });
   } catch (error) {
     console.error('Ошибка добавления задачи:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -298,7 +226,7 @@ app.delete('/api/tasks/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Ошибка удаления задачи:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -324,20 +252,12 @@ app.put('/api/tasks/:id/status', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Ошибка обновления статуса:', error);
-    res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found', path: req.path });
 });
 
 // Запуск сервера
 app.listen(port, () => {
   console.log(`🚀 Сервер запущен на порту ${port}`);
-  console.log(`📊 База данных: ${process.env.DB_NAME || 'not set'}`);
-  console.log(`🌐 URL: http://localhost:${port}`);
-  console.log(`🔗 Health check: http://localhost:${port}/health`);
-  console.log(`📈 DB test: http://localhost:${port}/api/test-db`);
+  console.log(`📊 База данных: ${process.env.DB_NAME}`);
 });
