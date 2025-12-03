@@ -14,22 +14,20 @@ const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   family: 4,
-  // Увеличиваем таймауты для облачного подключения
   connectionTimeoutMillis: 30000,
   idleTimeoutMillis: 60000,
   max: 10
 });
 
-// Разрешить запросы с фронтенда
+// CORS
 app.use(cors({
-  origin: process.env.FRONTEND_URL, // ссылка на Vercel
+  origin: process.env.FRONTEND_URL,
   credentials: true
 }));
 
-// Middleware
 app.use(express.json());
 
-// Health check эндпоинты
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
 });
@@ -231,7 +229,7 @@ app.delete('/api/tasks/:id', async (req, res) => {
   }
 });
 
-// Обновить статус задачи
+// Обновить статус задачи (ИСПРАВЛЕННЫЙ КОД)
 app.put('/api/tasks/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
@@ -257,9 +255,8 @@ app.put('/api/tasks/:id/status', async (req, res) => {
   }
 });
 
-// Запуск сервера
+// Запуск сервера (ИСПРАВЛЕННЫЙ КОД)
 app.listen(port, () => {
-  console.log(`🚀 Сервер запущен на порту ${port}`);
-  console.log(`📊 База данных: ${process.env.DB_NAME}`);
-});
-
+  console.log(`✔ Сервер запущен на порту ${port}`);
+  console.log(`■ База данных: ${process.env.DB_NAME}`);
+});  
